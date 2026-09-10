@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#151515">
+  <meta name="description" content="Working Gemini spacecraft Manual Data Insertion Unit recreation">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+  <title>Gemini MDIU</title>
+</head>
+<body>
+  <main class="page">
+    <section class="instrument" aria-label="Gemini Manual Data Insertion Unit simulator">
+      <div class="mdr panel">
+        <div class="screw tl"></div><div class="screw tr"></div><div class="screw bl"></div><div class="screw br"></div>
+        <div class="readout-headings"><span>ADDRESS</span><span>MESSAGE</span></div>
+        <div class="readout" aria-live="polite" aria-label="Address and message display">
+          <span class="digit">0</span><span class="digit">0</span>
+          <span class="divider"></span>
+          <span class="digit">0</span><span class="digit">0</span><span class="digit">0</span><span class="digit">0</span><span class="digit">0</span>
+        </div>
+        <div class="controls">
+          <div class="power-block">
+            <span class="pwr-vertical">P<br>W<br>R</span>
+            <button id="power-toggle" class="toggle on" aria-label="Power" aria-pressed="true"><span class="lever"></span></button>
+            <span class="power-label">ON<br><span class="arrow">↕</span><br>OFF</span>
+          </div>
+          <button class="command" id="readout">READ<br>OUT</button>
+          <button class="command" id="clear">CLEAR</button>
+          <button class="command" id="enter">ENTER</button>
+        </div>
+      </div>
+
+      <div class="mdk panel" aria-label="Manual Data Keyboard">
+        <div class="screw tl"></div><div class="screw tr"></div><div class="screw bl"></div><div class="screw br"></div>
+        <div class="keygrid">
+          <button class="numkey" data-digit="7">7</button><button class="numkey" data-digit="8">8</button><button class="numkey" data-digit="9">9</button>
+          <button class="numkey" data-digit="4">4</button><button class="numkey" data-digit="5">5</button><button class="numkey" data-digit="6">6</button>
+          <button class="numkey" data-digit="1">1</button><button class="numkey" data-digit="2">2</button><button class="numkey" data-digit="3">3</button>
+          <button class="numkey zero" data-digit="0">ZERO</button>
+        </div>
+      </div>
+    </section>
+    <p class="caption">GEMINI MANUAL DATA INSERTION UNIT · MDR / MDK</p>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

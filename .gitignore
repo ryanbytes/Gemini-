@@ -1,0 +1,4 @@
+android/out/
+android/dist/
+android/debug.keystore
+.DS_Store

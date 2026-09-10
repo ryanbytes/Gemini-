@@ -1,0 +1,9 @@
+{
+  "name": "Gemini MDIU",
+  "short_name": "Gemini MDIU",
+  "description": "Gemini spacecraft Manual Data Insertion Unit simulator",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#151515",
+  "theme_color": "#151515"
+}
