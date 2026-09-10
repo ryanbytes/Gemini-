@@ -18,7 +18,9 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 
 public class MainActivity extends Activity {
     @Override public void onCreate(Bundle state) {
@@ -42,10 +44,23 @@ public class MainActivity extends Activity {
         private final MDIUModel model;
         private int activeAction = -1;
         private int readGeneration = 0;
+        private int displayMode = MODE_MDIU;
+        private boolean dimmed = false;
         private float sx = 1f, sy = 1f, ox = 0f, oy = 0f;
 
         private static final int PWR=100, READ=101, CLEAR=102, ENTER=103;
-        private static final int W = 1200, H = 650;
+        private static final int MODE_MDIU=110, MODE_CLOCK=111, MODE_DREAM=112, DIM=113;
+        private static final int W = 1200, H = 720;
+        private static final String[] DREAM_PATTERNS = {
+                "1234567", "7654321", "0123456", "9876543", "2468135", "1357924", "0000000"
+        };
+
+        private final Runnable ticker = new Runnable() {
+            @Override public void run() {
+                if (displayMode != MODE_MDIU) invalidate();
+                handler.postDelayed(this, 100L);
+            }
+        };
 
         MDIUView(Context context) {
             super(context);
@@ -59,12 +74,18 @@ public class MainActivity extends Activity {
             });
             stroke.setStyle(Paint.Style.STROKE);
             stroke.setStrokeWidth(2f);
+            handler.post(ticker);
         }
 
         private int c(String hex) { return Color.parseColor(hex); }
         private float x(float v){ return ox + v*sx; }
         private float y(float v){ return oy + v*sy; }
         private RectF r(float l,float t,float rr,float b){ return new RectF(x(l),y(t),x(rr),y(b)); }
+
+        @Override protected void onDetachedFromWindow() {
+            handler.removeCallbacksAndMessages(null);
+            super.onDetachedFromWindow();
+        }
 
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
@@ -77,6 +98,12 @@ public class MainActivity extends Activity {
             drawBackdrop(canvas);
             drawMdr(canvas);
             drawMdk(canvas);
+            drawModeBar(canvas);
+            if (dimmed) {
+                p.setStyle(Paint.Style.FILL);
+                p.setColor(Color.argb(180, 0, 0, 0));
+                canvas.drawRect(0,0,getWidth(),getHeight(),p);
+            }
         }
 
         private void drawBackdrop(Canvas canvas) {
@@ -85,6 +112,20 @@ public class MainActivity extends Activity {
             p.setColor(c("#0a0a09"));
             stroke.setColor(c("#3f3f39"));
             canvas.drawRoundRect(r(25,35,1175,615), 12*sx,12*sy,stroke);
+        }
+
+        private String displayText() {
+            if (displayMode == MODE_CLOCK) {
+                Calendar d = Calendar.getInstance();
+                return String.format(Locale.US, "%02d%02d%02d%d",
+                        d.get(Calendar.HOUR_OF_DAY), d.get(Calendar.MINUTE), d.get(Calendar.SECOND),
+                        d.get(Calendar.MILLISECOND)/100);
+            }
+            if (displayMode == MODE_DREAM) {
+                int i = (int)((System.currentTimeMillis()/1200L) % DREAM_PATTERNS.length);
+                return DREAM_PATTERNS[i];
+            }
+            return model.getDisplay();
         }
 
         private void drawMdr(Canvas canvas) {
@@ -102,20 +143,19 @@ public class MainActivity extends Activity {
             canvas.drawRect(r(130,212,695,330),p);
             stroke.setColor(c("#5d5d57")); stroke.setStrokeWidth(2*sx); canvas.drawRect(r(130,212,695,330),stroke);
 
-            String d = model.getDisplay();
+            String d = displayText();
             float dw=68, gap=4, start=148;
             for(int i=0;i<7;i++) {
                 float left=start+i*(dw+gap)+(i>=2?8:0);
                 RectF win=r(left,229,left+dw,314);
                 p.setColor(c("#151515")); canvas.drawRect(win,p);
                 stroke.setColor(c("#4a4a46")); stroke.setStrokeWidth(1*sx); canvas.drawRect(win,stroke);
-                int alpha=model.isPowered()?255:110;
+                int alpha=(model.isPowered() || displayMode != MODE_MDIU)?255:110;
                 int col=Color.argb(alpha,238,238,232);
                 text(canvas,String.valueOf(d.charAt(i)),left+dw/2,300,66,col,Paint.Align.CENTER,true);
             }
             p.setColor(c("#b3ad9d")); canvas.drawRect(r(294,223,297,320),p);
 
-            // PWR labels and switch
             drawMultiline(canvas,"P\nW\nR",105,399,17,c("#ded8c4"));
             text(canvas,"ON",198,372,18,c("#ded8c4"),Paint.Align.CENTER,false);
             text(canvas,"OFF",198,460,18,c("#ded8c4"),Paint.Align.CENTER,false);
@@ -161,6 +201,22 @@ public class MainActivity extends Activity {
             addHit(action,l,t,l+ww,t+hh+8);
         }
 
+        private void drawModeBar(Canvas canvas) {
+            modeButton(canvas, MODE_MDIU, "MDIU", 330, 650, 445, 700, displayMode==MODE_MDIU);
+            modeButton(canvas, MODE_CLOCK, "CLOCK", 455, 650, 570, 700, displayMode==MODE_CLOCK);
+            modeButton(canvas, MODE_DREAM, "DREAM", 580, 650, 695, 700, displayMode==MODE_DREAM);
+            modeButton(canvas, DIM, "DIM", 705, 650, 820, 700, dimmed);
+        }
+
+        private void modeButton(Canvas canvas,int action,String label,float l,float t,float rr,float b,boolean selected) {
+            boolean down=activeAction==action;
+            p.setStyle(Paint.Style.FILL); p.setColor(selected?c("#34342f"):c("#1b1b19"));
+            RectF face=r(l,t+(down?2:0),rr,b+(down?2:0)); canvas.drawRoundRect(face,5*sx,5*sy,p);
+            stroke.setColor(selected?c("#989487"):c("#4e4e49")); stroke.setStrokeWidth(1.5f*sx); canvas.drawRoundRect(face,5*sx,5*sy,stroke);
+            text(canvas,label,(l+rr)/2,(t+b)/2+6+(down?2:0),14,selected?c("#eee8d7"):c("#a9a79d"),Paint.Align.CENTER,false);
+            addHit(action,l,t,rr,b);
+        }
+
         private void screw(Canvas canvas,float cx,float cy) {
             p.setColor(c("#8b8b83")); canvas.drawCircle(x(cx),y(cy),9*sx,p);
             stroke.setColor(c("#282826")); stroke.setStrokeWidth(2*sx); canvas.drawLine(x(cx-6),y(cy+1),x(cx+6),y(cy-1),stroke);
@@ -193,8 +249,16 @@ public class MainActivity extends Activity {
 
         private int findAction(float px,float py){ for(Hit h:hits) if(h.rect.contains(px,py)) return h.action; return -1; }
 
+        private void useMDIU() { displayMode = MODE_MDIU; }
+
         private void invoke(int action) {
             long now=SystemClock.uptimeMillis();
+            if(action==MODE_MDIU) { displayMode=MODE_MDIU; invalidate(); return; }
+            if(action==MODE_CLOCK) { readGeneration++; displayMode=MODE_CLOCK; invalidate(); return; }
+            if(action==MODE_DREAM) { readGeneration++; displayMode=MODE_DREAM; invalidate(); return; }
+            if(action==DIM) { dimmed=!dimmed; invalidate(); return; }
+
+            useMDIU();
             if(action>=0 && action<=9) {
                 if(model.pressDigit(action,now)) invalidate();
             } else if(action==PWR) {
@@ -210,7 +274,7 @@ public class MainActivity extends Activity {
                     String message=result[1];
                     for(int i=0;i<5;i++) {
                         final int idx=i; final char ch=message.charAt(i);
-                        handler.postDelayed(() -> { if(gen==readGeneration && model.isPowered()) { model.setReadoutDigit(idx+2,ch); invalidate(); } }, (i+1)*500L);
+                        handler.postDelayed(() -> { if(gen==readGeneration && model.isPowered() && displayMode==MODE_MDIU) { model.setReadoutDigit(idx+2,ch); invalidate(); } }, (i+1)*500L);
                     }
                 }
             }
