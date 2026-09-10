@@ -19,8 +19,9 @@ export class GeminiMDIUModel {
 
   clear() {
     if (!this.powered) return this.snapshot();
+    // Gemini CLEAR resets entry/data-ready latches; it does not mechanically
+    // return the seven display wheels to zero.
     this.entry = '';
-    this.display = '0000000';
     this.error = false;
     this.armed = true;
     this.readyAfter = this.now() + 500;
@@ -39,11 +40,14 @@ export class GeminiMDIUModel {
     if (!/^\d$/.test(d)) return { ...this.snapshot(), accepted: false };
     if (this.entry.length >= 7) return this.fail();
 
+    const position = this.entry.length;
     this.entry += d;
-    this.display = this.entry.padEnd(7, '0');
+    const chars = this.display.split('');
+    chars[position] = d;
+    this.display = chars.join('');
     this.error = false;
     this.readyAfter = this.now() + 500;
-    return { ...this.snapshot(), accepted: true };
+    return { ...this.snapshot(), accepted: true, position };
   }
 
   enter() {
@@ -53,7 +57,6 @@ export class GeminiMDIUModel {
     const address = this.entry.slice(0, 2);
     const message = this.entry.slice(2);
     this.write(address, message);
-    this.display = address + message;
     this.entry = '';
     this.error = false;
     this.armed = false;
@@ -90,6 +93,8 @@ export class GeminiMDIUModel {
   }
 
   validAddress(address) {
+    // Mission programs defined which logical addresses were meaningful.
+    // Keep the generic interface at 01-99 until mission address tables are loaded.
     return /^\d{2}$/.test(address) && address !== '00';
   }
 
