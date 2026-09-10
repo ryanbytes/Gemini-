@@ -19,12 +19,13 @@ export class GeminiMDIUModel {
 
   clear() {
     if (!this.powered) return this.snapshot();
-    // Gemini CLEAR resets entry/data-ready latches; it does not mechanically
-    // return the seven display wheels to zero.
+    // CLEAR resets the entry/data-ready latches but does not mechanically
+    // return the display wheels to zero. The 0.5 s cadence applies after
+    // each displayed digit, not after CLEAR itself.
     this.entry = '';
     this.error = false;
     this.armed = true;
-    this.readyAfter = this.now() + 500;
+    this.readyAfter = this.now();
     return this.snapshot();
   }
 
