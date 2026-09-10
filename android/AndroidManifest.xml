@@ -1,4 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.ryanbytes.geminimdiu" android:versionCode="1" android:versionName="0.1.0">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.ryanbytes.geminimdiu" android:versionCode="2" android:versionName="0.2.0">
     <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="37" />
     <application android:theme="@android:style/Theme.Material.Light.NoActionBar.Fullscreen" android:label="Gemini MDIU" android:allowBackup="true" android:supportsRtl="true">
         <activity android:name=".MainActivity" android:screenOrientation="sensorLandscape" android:exported="true">
