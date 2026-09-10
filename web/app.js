@@ -1,35 +1,30 @@
 import { GeminiMDIUModel } from './model.js';
+import { GeminiObcCore } from './obc-core.js';
+import { MDIUSound } from './sound.js';
 
 const model = new GeminiMDIUModel(window.localStorage);
+const obc = GeminiObcCore.diagnostic();
+const sound = new MDIUSound();
 const digitEls = [...document.querySelectorAll('.digit')];
 const powerToggle = document.querySelector('#power-toggle');
 const instrument = document.querySelector('.instrument');
 const page = document.querySelector('.page');
+const soundButton = document.querySelector('#sound');
 let readoutTimer = null;
 let modeTimer = null;
 let mode = 'mdiu';
 let dimmed = false;
-let dreamStep = 0;
+let lastRendered = null;
 
 function clockDigits() {
   const d = new Date();
   return String(d.getHours()).padStart(2,'0') +
          String(d.getMinutes()).padStart(2,'0') +
-         String(d.getSeconds()).padStart(2,'0') +
-         String(Math.floor(d.getMilliseconds()/100));
+         String(d.getSeconds()).padStart(2,'0') + '0';
 }
 
 function dreamDigits() {
-  // Modern ambient/self-test presentation, deliberately not mission telemetry.
-  const stored = [];
-  for (let i=1;i<=99;i++) {
-    const a=String(i).padStart(2,'0');
-    const v=model.read(a);
-    if (v !== '00000') stored.push(a+v);
-  }
-  if (stored.length) return stored[dreamStep++ % stored.length];
-  const patterns=['1234567','7654321','0123456','9876543','2468135','1357924','0000000'];
-  return patterns[dreamStep++ % patterns.length];
+  return String(obc.acc & GeminiObcCore.MASK26).padStart(7,'0').slice(-7);
 }
 
 function currentDisplay() {
@@ -38,9 +33,11 @@ function currentDisplay() {
   return model.snapshot().display;
 }
 
-function render() {
+function render(playWheel = true) {
   const state = model.snapshot();
   const display = currentDisplay();
+  if (playWheel && lastRendered && display !== lastRendered) sound.displayChanged(lastRendered, display);
+  lastRendered = display;
   digitEls.forEach((el, i) => {
     el.textContent = display[i] || '0';
     el.classList.toggle('unpowered', !state.powered && mode === 'mdiu');
@@ -50,6 +47,8 @@ function render() {
   instrument.classList.toggle('error', state.error && mode === 'mdiu');
   page.classList.toggle('dimmed', dimmed);
   document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active', b.dataset.mode===mode));
+  soundButton.classList.toggle('active', sound.enabled);
+  soundButton.setAttribute('aria-pressed', String(sound.enabled));
 }
 
 function pulse(el) {
@@ -59,32 +58,47 @@ function pulse(el) {
 function cancelReadout(){ if(readoutTimer) clearInterval(readoutTimer); readoutTimer=null; }
 function cancelModeTimer(){ if(modeTimer) clearInterval(modeTimer); modeTimer=null; }
 function setMode(next){
-  cancelReadout(); cancelModeTimer(); mode=next; dreamStep=0;
-  if(mode==='clock') modeTimer=setInterval(render,100);
-  else if(mode==='dream') modeTimer=setInterval(render,1200);
-  render();
+  cancelReadout(); cancelModeTimer(); mode=next;
+  if(mode==='clock') modeTimer=setInterval(()=>render(true),1000);
+  else if(mode==='dream') modeTimer=setInterval(()=>{ obc.runCycles(7143); render(true); },1000);
+  render(true);
 }
 function ensureMDIU(){ if(mode!=='mdiu') setMode('mdiu'); }
 
-function digit(d, el) {
-  ensureMDIU(); cancelReadout(); const result=model.pressDigit(d);
-  if(result.accepted) pulse(el); render();
+async function digit(d, el) {
+  await sound.arm();
+  ensureMDIU(); cancelReadout(); sound.key();
+  const result=model.pressDigit(d);
+  if(result.accepted) pulse(el);
+  render(true);
 }
 function readOut(el) {
-  ensureMDIU(); cancelReadout(); pulse(el); const result=model.readOut(); render();
+  sound.arm(); ensureMDIU(); cancelReadout(); sound.command(); pulse(el);
+  const result=model.readOut(); render(true);
   if(!result.ok) return;
-  model.display=result.address+'00000'; render(); let i=0;
-  readoutTimer=setInterval(()=>{ model.setReadoutDigit(i+2,result.message[i]); render(); i++; if(i>=5) cancelReadout(); },500);
+  let i=0;
+  readoutTimer=setInterval(()=>{
+    model.setReadoutDigit(i+2,result.message[i]);
+    render(true);
+    i++;
+    if(i>=5) cancelReadout();
+  },500);
 }
 
 document.querySelectorAll('[data-digit]').forEach(el=>el.addEventListener('click',()=>digit(el.dataset.digit,el)));
-document.querySelector('#clear').addEventListener('click',e=>{ ensureMDIU(); cancelReadout(); pulse(e.currentTarget); model.clear(); render(); });
-document.querySelector('#enter').addEventListener('click',e=>{ ensureMDIU(); cancelReadout(); pulse(e.currentTarget); model.enter(); render(); });
+document.querySelector('#clear').addEventListener('click',async e=>{ await sound.arm(); ensureMDIU(); cancelReadout(); sound.command(); pulse(e.currentTarget); model.clear(); render(true); });
+document.querySelector('#enter').addEventListener('click',async e=>{ await sound.arm(); ensureMDIU(); cancelReadout(); sound.command(); pulse(e.currentTarget); model.enter(); render(true); });
 document.querySelector('#readout').addEventListener('click',e=>readOut(e.currentTarget));
-powerToggle.addEventListener('click',()=>{ ensureMDIU(); cancelReadout(); model.togglePower(); render(); });
-document.querySelectorAll('[data-mode]').forEach(el=>el.addEventListener('click',()=>setMode(el.dataset.mode)));
-document.querySelector('#dim').addEventListener('click',()=>{ dimmed=!dimmed; render(); });
+powerToggle.addEventListener('click',async()=>{ await sound.arm(); ensureMDIU(); cancelReadout(); sound.toggle(); model.togglePower(); render(false); });
+document.querySelectorAll('[data-mode]').forEach(el=>el.addEventListener('click',async()=>{ await sound.arm(); sound.command(); setMode(el.dataset.mode); }));
+soundButton.addEventListener('click',async()=>{
+  if(!sound.enabled){ sound.setEnabled(true); await sound.arm(); sound.command(); }
+  else sound.setEnabled(false);
+  render(false);
+});
+document.querySelector('#dim').addEventListener('click',async()=>{ await sound.arm(); sound.command(); dimmed=!dimmed; render(false); });
 document.querySelector('#fullscreen').addEventListener('click',async()=>{
+  await sound.arm(); sound.command();
   try { if(!document.fullscreenElement) await document.documentElement.requestFullscreen(); else await document.exitFullscreen(); } catch(_) {}
 });
 
@@ -99,5 +113,5 @@ window.addEventListener('keydown',e=>{
   else if(e.key==='Enter') document.querySelector('#enter').click();
 });
 
-render();
+render(false);
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
