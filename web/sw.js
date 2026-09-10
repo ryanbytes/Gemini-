@@ -1,5 +1,5 @@
-const CACHE = 'gemini-mdiu-v2';
-const ASSETS = ['./', './index.html', './style.css', './app.js', './model.js', './manifest.webmanifest'];
+const CACHE = 'gemini-mdiu-v3';
+const ASSETS = ['./', './index.html', './style.css', './app.js', './model.js', './obc-core.js', './sound.js', './manifest.webmanifest'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS))));
 self.addEventListener('activate', event => event.waitUntil(
   caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())
