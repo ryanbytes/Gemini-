@@ -34,11 +34,12 @@ public final class MDIUModel {
     public void clear(long nowMs) {
         if (!powered) return;
         // CLEAR resets entry/data-ready latches, but leaves the physical
-        // display wheels at their existing positions.
+        // display wheels at their existing positions. The documented 0.5 s
+        // delay applies after each displayed digit, not after CLEAR itself.
         entry = "";
         error = false;
         armed = true;
-        readyAfterMs = nowMs + 500;
+        readyAfterMs = nowMs;
     }
 
     public boolean pressDigit(int digit, long nowMs) {
