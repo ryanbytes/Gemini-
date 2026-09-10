@@ -33,8 +33,9 @@ public final class MDIUModel {
 
     public void clear(long nowMs) {
         if (!powered) return;
+        // CLEAR resets entry/data-ready latches, but leaves the physical
+        // display wheels at their existing positions.
         entry = "";
-        display = "0000000";
         error = false;
         armed = true;
         readyAfterMs = nowMs + 500;
@@ -45,10 +46,11 @@ public final class MDIUModel {
         if (!armed) { fail(nowMs); return false; }
         if (nowMs < readyAfterMs || digit < 0 || digit > 9) return false;
         if (entry.length() >= 7) { fail(nowMs); return false; }
+        int position = entry.length();
         entry += digit;
-        StringBuilder b = new StringBuilder(entry);
-        while (b.length() < 7) b.append('0');
-        display = b.toString();
+        char[] chars = display.toCharArray();
+        chars[position] = (char)('0' + digit);
+        display = new String(chars);
         error = false;
         readyAfterMs = nowMs + 500;
         return true;
@@ -64,7 +66,6 @@ public final class MDIUModel {
         String address = entry.substring(0, 2);
         String message = entry.substring(2);
         put(address, message);
-        display = address + message;
         entry = "";
         error = false;
         armed = false;
@@ -79,7 +80,6 @@ public final class MDIUModel {
         String address = entry;
         String message = get(address);
         entry = "";
-        display = address + "00000";
         error = false;
         armed = false;
         return new String[]{address, message};
