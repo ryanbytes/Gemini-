@@ -13,12 +13,24 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Run core tests
+        run: |
+          mkdir -p android/test-out
+          javac -d android/test-out \
+            android/src/com/ryanbytes/geminimdiu/MDIUModel.java \
+            android/src/com/ryanbytes/geminimdiu/GeminiObcCore.java \
+            android/test/TestMDIU.java \
+            android/test/TestOBC.java
+          java -cp android/test-out TestMDIU
+          java -cp android/test-out TestOBC
       - uses: android-actions/setup-android@v3
       - run: sdkmanager 'platforms;android-37' 'build-tools;36.0.0'
-      - name: Build
+      - name: Build APK
         working-directory: android
         run: ./build_sdk.sh
       - uses: actions/upload-artifact@v4
         with:
           name: Gemini-MDIU-APK
-          path: android/dist/Gemini-MDIU.apk
+          path: |
+            android/dist/Gemini-MDIU.apk
+            android/dist/Gemini-MDIU.apk.sha256
